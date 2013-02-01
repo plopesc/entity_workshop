@@ -109,15 +109,12 @@ function artwork_table() {
   $material_items = list_allowed_values($fields['field_artwork_material']);
   $collection_items = list_allowed_values($fields['field_artwork_collection']);
   foreach ($nodes as $node) {
-    $row['title'] = $node->title;
-    $author = user_load($node->uid);
-    $row['author'] = $author->name;
-    $material = reset(field_get_items('node', $node, 'field_artwork_material'));
-    $row['material'] = $material_items[$material['value']];
-    $collection = reset(field_get_items('node', $node, 'field_artwork_collection'));
-    $row['collection'] = $collection_items[$collection['value']];
-    $price = reset(field_get_items('node', $node, 'field_artwork_price'));
-    $row['price'] = $price['value'];
+    $node_wrapper = entity_metadata_wrapper('node', $node);
+    $row['title'] = $node_wrapper->title->value();
+    $row['author'] = $node_wrapper->author->name->value();
+    $row['material'] = $material_items[$node_wrapper->field_artwork_material->value()];
+    $row['collection'] = $collection_items[$node_wrapper->field_artwork_collection->value()];
+    $row['price'] = $node_wrapper->field_artwork_price->value();
     $rows[] = $row;
   }
 
