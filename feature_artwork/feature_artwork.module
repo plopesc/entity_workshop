@@ -35,6 +35,14 @@ function feature_artwork_menu() {
     'weight' => 0,
   );
 
+  $items['artworks/table'] = array(
+    'title' => 'Artwork table',
+    'page callback' => 'artwork_table',
+    'access arguments' => array('access content'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+
   return $items;
 }
 
@@ -54,3 +62,67 @@ function artwork_list() {
   return $output;
 }
 
+function artwork_table() {
+  $header = array(
+    'title' => array(
+      'data' => t('Title'),
+      'type' => 'property',
+      'specifier' => 'title'
+    ),
+    'author' => t('Author'),
+    'material' => array(
+      'data' => t('Material'),
+      'type' => 'field',
+      'specifier' => array(
+        'field' => 'field_artwork_material',
+        'column' => 'value'
+      )
+    ),
+    'collection' => array(
+      'data' => t('Collection'),
+      'type' => 'field',
+      'specifier' => array(
+        'field' => 'field_artwork_collection',
+        'column' => 'value'
+      )
+    ),
+    'price' => array(
+      'data' => t('Price (€)'),
+      'type' => 'field',
+      'specifier' => array(
+        'field' => 'field_artwork_price',
+        'column' => 'value'
+      )
+    ),
+  );
+  $efq = new EntityFieldQuery();
+  $efq
+    ->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'artwork')
+    ->propertyCondition('status', 1)
+    ->tablesort($header);
+  $efq->pager(10);
+  $result = $efq->execute();
+  $nids = array_keys($result['node']);
+  $nodes = node_load_multiple($nids);
+  $fields = field_info_fields();
+  $material_items = list_allowed_values($fields['field_artwork_material']);
+  $collection_items = list_allowed_values($fields['field_artwork_collection']);
+  foreach ($nodes as $node) {
+    $row['title'] = $node->title;
+    $author = user_load($node->uid);
+    $row['author'] = $author->name;
+    $material = reset(field_get_items('node', $node, 'field_artwork_material'));
+    $row['material'] = $material_items[$material['value']];
+    $collection = reset(field_get_items('node', $node, 'field_artwork_collection'));
+    $row['collection'] = $collection_items[$collection['value']];
+    $price = reset(field_get_items('node', $node, 'field_artwork_price'));
+    $row['price'] = $price['value'];
+    $rows[] = $row;
+  }
+
+  $output['table'] = array('#theme' => 'table', '#header' => $header, '#rows' => $rows);
+  $output['pager'] = array('pager' => array('#theme' =>'pager', '#tags' => NULL));
+
+  return $output;
+}
