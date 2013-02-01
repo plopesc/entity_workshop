@@ -1,0 +1,54 @@
+<?php
+/**
+ * @file
+ * Code for the Feature Artwork feature.
+ */
+
+include_once 'feature_artwork.features.inc';
+
+/**
+ * Implements hook_entity_info_alter()
+ */
+function feature_artwork_entity_info_alter(&$entity_info) {
+  $entity_info['node']['view modes']['only_price'] = array(
+    'label' => t('Only price'),
+    'custom settings' => FALSE,
+  );
+}
+
+/**
+ * Implements hook_menu()
+ */
+function feature_artwork_menu() {
+  $items = array();
+  $items['artworks'] = array(
+    'title' => 'Artworks list',
+    'page callback' => 'artwork_list',
+    'access arguments' => array('access content'),
+  );
+
+  $items['artworks/list'] = array(
+    'title' => 'Artworks list',
+    'page callback' => 'artwork_list',
+    'access arguments' => array('access content'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+  return $items;
+}
+
+function artwork_list() {
+  $efq = new EntityFieldQuery();
+  $efq
+    ->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'artwork')
+    ->propertyCondition('status', 1)
+    ->propertyOrderBy('title', 'ASC');
+  $result = $efq->execute();
+  $nids = array_keys($result['node']);
+  $nodes = node_load_multiple($nids);
+  $output = node_view_multiple($nodes);
+  return $output;
+}
+
