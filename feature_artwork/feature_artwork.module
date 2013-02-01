@@ -44,11 +44,12 @@ function artwork_list() {
     ->entityCondition('entity_type', 'node')
     ->entityCondition('bundle', 'artwork')
     ->propertyCondition('status', 1)
-    ->propertyOrderBy('title', 'ASC');
+    ->fieldCondition('field_artwork_price', 'value', 1000, '<')
+    ->fieldOrderBy('field_artwork_price', 'value', 'ASC');
   $result = $efq->execute();
   $nids = array_keys($result['node']);
   $nodes = node_load_multiple($nids);
-  $output = node_view_multiple($nodes);
+  $output = node_view_multiple($nodes, 'only_price');
   return $output;
 }
 
