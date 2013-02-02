@@ -30,6 +30,13 @@ function example_task_entity_info() {
       'uri callback' => 'entity_class_uri',
       'module' => 'example_task',
       'access callback' => 'example_task_access',
+      //Enable Entity Translation integration
+      'translation' => array(
+        'entity_translation' => array(
+          'base path' => 'task/%example_task',
+          'edit form' => 'task',
+        ),
+      ),
     ),
   );
   $return['example_task_type'] = array(
