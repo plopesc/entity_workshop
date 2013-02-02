@@ -1,0 +1,10 @@
+name = Example Tasks
+description = Example of usage Entity API.
+package = Other
+version = VERSION
+core = 7.x
+
+dependencies[] = entity
+dependencies[] = views
+
+files[] = example_task.controller.inc

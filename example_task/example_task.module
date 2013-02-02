@@ -1,0 +1,345 @@
+<?php
+
+/**
+ * Implements hook_entity_info().
+ */
+function example_task_entity_info() {
+  $return = array(
+    'example_task' => array(
+      'label' => t('Task'),
+      'entity class' => 'ExampleTask',
+      'controller class' => 'ExampleTaskController',
+      'base table' => 'example_task',
+      'fieldable' => TRUE,
+      'entity keys' => array(
+        'id' => 'tkid',
+        'bundle' => 'type',
+      ),
+      'bundle keys' => array(
+        'bundle' => 'type',
+      ),
+      'bundles' => array(),
+      'load hook' => 'example_task_load',
+      'view modes' => array(
+        'full' => array(
+          'label' => t('Default'),
+          'custom settings' => FALSE,
+        ),
+      ),
+      'label callback' => 'entity_class_label',
+      'uri callback' => 'entity_class_uri',
+      'module' => 'example_task',
+      'access callback' => 'example_task_access',
+    ),
+  );
+  $return['example_task_type'] = array(
+    'label' => t('Task Type'),
+    'entity class' => 'ExampleTaskType',
+    'controller class' => 'ExampleTaskTypeController',
+    'base table' => 'example_task_type',
+    'fieldable' => FALSE,
+    'bundle of' => 'example_task',
+    'exportable' => TRUE,
+    'entity keys' => array(
+      'id' => 'id',
+      'name' => 'type',
+      'label' => 'label',
+    ),
+    'module' => 'example_task',
+    // Enable the entity API's admin UI.
+    'admin ui' => array(
+      'path' => 'admin/structure/task-types',
+      'file' => 'example_task.admin.inc',
+      'controller class' => 'ExampleTaskTypeUIController',
+    ),
+    'access callback' => 'example_task_type_access',
+  );
+
+  return $return;
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ */
+function example_task_entity_info_alter(&$entity_info) {
+  foreach (example_task_types() as $type => $info) {
+    $entity_info['example_task']['bundles'][$type] = array(
+      'label' => $info->label,
+      'admin' => array(
+        'path' => 'admin/structure/task-types/manage/%example_task_type',
+        'real path' => 'admin/structure/task-types/manage/' . $type,
+        'bundle argument' => 4,
+      ),
+    );
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function example_task_menu() {
+  $items = array();
+
+  $items['task/add'] = array(
+    'title' => 'Add task',
+    'page callback' => 'example_task_admin_add_page',
+    'access arguments' => array('administer example_task entities'),
+    'file' => 'example_task.admin.inc',
+    'type' => MENU_LOCAL_ACTION,
+    'tab_parent' => 'task',
+    'tab_root' => 'task',
+  );
+
+  $task_uri = 'task/%example_task';
+  $task_uri_argument_position = 1;
+
+  $items[$task_uri] = array(
+    'title callback' => 'entity_label',
+    'title arguments' => array('example_task', $task_uri_argument_position),
+    'page callback' => 'example_task_view',
+    'page arguments' => array($task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('view', 'example_task', $task_uri_argument_position),
+    'file' => 'example_task.pages.inc',
+  );
+
+  $items[$task_uri . '/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items[$task_uri . '/delete'] = array(
+    'title' => 'Delete task',
+    'title callback' => 'example_task_label',
+    'title arguments' => array($task_uri_argument_position),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('example_task_delete_form', $task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'example_task', $task_uri_argument_position),
+    'file' => 'example_task.admin.inc',
+  );
+
+  $items[$task_uri . '/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('example_task_form', $task_uri_argument_position),
+    'access callback' => 'entity_access',
+    'access arguments' => array('edit', 'example_task', $task_uri_argument_position),
+    'file' => 'example_task.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+
+  foreach (example_task_types() as $type => $info) {
+    $items['task/add/' . $type] = array(
+      'title' => 'Add task',
+      'page callback' => 'example_task_add',
+      'page arguments' => array(2),
+      'access callback' => 'entity_access',
+      'access arguments' => array('create', 'example_task', $type),
+      'file' => 'example_task.admin.inc',
+    );
+  }
+
+  $items['admin/structure/task-types/%example_task_type/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('example_task_type_form_delete_confirm', 4),
+    'access arguments' => array('administer example_task types'),
+    'weight' => 1,
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'example_task.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function example_task_permission() {
+  $permissions = array(
+    'administer example_task types' => array(
+      'title' => t('Administer task types'),
+      'description' => t('Allows users to configure task types and their fields.'),
+      'restrict access' => TRUE,
+    ),
+    'create example_task entities' => array(
+      'title' => t('Create tasks'),
+      'description' => t('Allows users to create tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'view example_task entities' => array(
+      'title' => t('View tasks'),
+      'description' => t('Allows users to view tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'edit any example_task entities' => array(
+      'title' => t('Edit any tasks'),
+      'description' => t('Allows users to edit any tasks.'),
+      'restrict access' => TRUE,
+    ),
+    'edit own example_task entities' => array(
+      'title' => t('Edit own tasks'),
+      'description' => t('Allows users to edit own tasks.'),
+      'restrict access' => TRUE,
+    ),
+  );
+
+  return $permissions;
+}
+
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function example_task_entity_property_info_alter(&$info) {
+  $properties = &$info['example_task']['properties'];
+  $properties['created'] = array(
+    'label' => t("Date created"),
+    'type' => 'date',
+    'description' => t("The date the node was posted."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer nodes',
+    'schema field' => 'created',
+  );
+  $properties['changed'] = array(
+    'label' => t("Date changed"),
+    'type' => 'date',
+    'schema field' => 'changed',
+    'description' => t("The date the node was most recently updated."),
+  );
+  $properties['uid'] = array(
+    'label' => t("Author"),
+    'type' => 'user',
+    'description' => t("The author of the task."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer example_task entities',
+    'required' => TRUE,
+    'schema field' => 'uid',
+  );
+}
+
+
+/*******************************************************************************
+ ********************************* Task API's **********************************
+ ******************************************************************************/
+
+/**
+ * Access callback for task.
+ */
+function example_task_access($op, $task, $account = NULL, $entity_type = NULL) {
+  global $user;
+
+  if (!isset($account)) {
+    $account = $user;
+  }
+  switch ($op) {
+    case 'create':
+      return user_access('administer example_task entities', $account)
+          || user_access('create example_task entities', $account);
+    case 'view':
+      return user_access('administer example_task entities', $account)
+          || user_access('view example_task entities', $account);
+    case 'edit':
+      return user_access('administer example_task entities')
+          || user_access('edit any example_task entities')
+          || (user_access('edit own example_task entities') && ($task->uid == $account->uid));
+  }
+}
+
+/**
+ * Load a task.
+ */
+function example_task_load($tkid, $reset = FALSE) {
+  $tasks = example_task_load_multiple(array($tkid), array(), $reset);
+  return reset($tasks);
+}
+
+/**
+ * Load multiple tasks based on certain conditions.
+ */
+function example_task_load_multiple($tkids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('example_task', $tkids, $conditions, $reset);
+}
+
+/**
+ * Save task.
+ */
+function example_task_save($task) {
+  entity_save('example_task', $task);
+}
+
+/**
+ * Delete single task.
+ */
+function example_task_delete($task) {
+  entity_delete('example_task', entity_id('example_task' ,$task));
+}
+
+/**
+ * Delete multiple tasks.
+ */
+function example_task_delete_multiple($task_ids) {
+  entity_delete_multiple('example_task', $task_ids);
+}
+
+
+/*******************************************************************************
+ ****************************** Task Type API's ********************************
+ ******************************************************************************/
+
+/**
+ * Access callback for task Type.
+ */
+function example_task_type_access($op, $entity = NULL) {
+  return user_access('administer example_task types');
+}
+
+/**
+ * Load task Type.
+ */
+function example_task_type_load($task_type) {
+  return example_task_types($task_type);
+}
+
+/**
+ * List of task Types.
+ */
+function example_task_types($type_name = NULL) {
+  $types = entity_load_multiple_by_name('example_task_type', isset($type_name) ? array($type_name) : FALSE);
+  return isset($type_name) ? reset($types) : $types;
+}
+
+/**
+ * Save task type entity.
+ */
+function example_task_type_save($task_type) {
+  entity_save('example_task_type', $task_type);
+}
+
+/**
+ * Delete single case type.
+ */
+function example_task_type_delete($task_type) {
+  entity_delete('example_task_type', entity_id('example_task_type' ,$task_type));
+}
+
+/**
+ * Delete multiple case types.
+ */
+function example_task_type_delete_multiple($task_type_ids) {
+  entity_delete_multiple('example_task_type', $task_type_ids);
+}
+
+/**
+  * Implements hook_views_api().
+  */
+function example_task_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'example_task'),
+  );
+}
+
