@@ -65,6 +65,15 @@ function example_task_type_form_submit(&$form, &$form_state) {
   // Save and go back.
   example_task_type_save($task_type);
 
+  if ($form_state['op'] == 'edit') {
+    drupal_set_message(t('Task type @type updated', array('@type' => $task_type->type)));
+  }
+  else {
+    // Add observations field.
+    example_task_type_add_observations_field($task_type);
+    drupal_set_message(t('Task type @type created', array('@type' => $task_type->type)));
+  }
+
   // Redirect user back to list of task types.
   $form_state['redirect'] = 'admin/structure/task-types';
 }

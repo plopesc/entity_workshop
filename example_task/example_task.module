@@ -228,6 +228,48 @@ function example_task_entity_property_info_alter(&$info) {
   );
 }
 
+/**
+ * Add default observations field to a task type.
+ *
+ * @param $type
+ *   A task type object.
+ * @param $label
+ *   The label for the observations instance.
+ *
+ * @return
+ *   Observations field instance.
+ */
+function example_task_type_add_observations_field($type, $label = 'Observations') {
+  // Add or remove the body field, as needed.
+  $field = field_info_field('observations');
+  $instance = field_info_instance('example_task', 'observations', $type->type);
+  if (empty($field)) {
+    $field = array(
+      'field_name' => 'observations',
+      'type' => 'text',
+      'entity_types' => array('example_task'),
+    );
+    $field = field_create_field($field);
+  }
+  if (empty($instance)) {
+    $instance = array(
+      'field_name' => 'observations',
+      'entity_type' => 'example_task',
+      'bundle' => $type->type,
+      'label' => $label,
+      'widget' => array('type' => 'text'),
+      'display' => array(
+        'default' => array(
+          'label' => 'hidden',
+          'type' => 'text_default',
+        ),
+      ),
+    );
+    $instance = field_create_instance($instance);
+  }
+  return $instance;
+}
+
 
 /*******************************************************************************
  ********************************* Task API's **********************************
