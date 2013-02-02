@@ -1,0 +1,181 @@
+<?php
+/**
+ * @file
+ * Code for the Feature multimedia feature.
+ */
+
+include_once 'feature_multimedia.features.inc';
+
+/**
+ * Implements hook_menu()
+ */
+function feature_multimedia_menu() {
+  $items['import-multimedia'] = array(
+    'title' => 'Import multimedia',
+    'page callback' => 'multimedia_import',
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function multimedia_import() {
+  $items = feature_multimedia_get_items();
+
+  foreach ($items as $item) {
+    $wrapper = feature_multimedia_get_multimedia($item);
+    feature_multimedia_save_tags($wrapper, $item['tags']);
+    feature_multimedia_set_body($wrapper, $item['body']);
+    feature_multimedia_save_images($wrapper, $item['image']);
+    $wrapper->save();
+  }
+
+  return format_plural(count($items),
+    'Imported 1 multimedia item',
+    'Imported @count multimedia items');
+}
+
+function feature_multimedia_get_items() {
+  $items = array(
+    0 => array(
+      'title' => 'Multimedia 1',
+      'mid' => 1,
+      'body' => array(
+        'en' => 'English Body',
+        'es' => 'Body Español',
+      ),
+      'tags' => array(
+        'tag1',
+        'tag2'
+      ),
+      'image' => 'image1.png'
+    ),
+    1 => array(
+      'title' => 'Multimedia 2',
+      'mid' => 2,
+      'body' => array(
+        'en' => 'English Body multimedia 2',
+        'es' => 'Body Español multimedia 2',
+      ),
+      'tags' => array(
+        'tag1',
+        'tag3'
+      ),
+      'image' => 'image2.jpeg'
+    ),
+    2 => array(
+      'title' => 'Multimedia 3',
+      'mid' => 3,
+      'body' => array(
+        'en' => 'English Body multimedia 3',
+        'es' => 'Body Español multimedia 3',
+      ),
+      'tags' => array(
+        'tag4',
+        'tag2'
+      ),
+      'image' => 'image3.jpg'
+    ),
+
+  );
+
+  return $items;
+
+}
+
+function feature_multimedia_get_multimedia($item) {
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'node', '=')
+    ->entityCondition('bundle', 'multimedia')
+    ->fieldCondition('field_multimedia_mid', 'value', $item['mid'], '=')
+    ->range(0, 1);
+
+  if ($result = $query->execute()) {
+    $node = reset($result['node']);
+    $multimedia = node_load($node->nid);
+  }
+  else {
+    $multimedia = new stdClass();
+    $multimedia->type = 'multimedia';
+    node_object_prepare($multimedia);
+    node_submit($multimedia);
+    node_save($multimedia);
+  }
+
+  $multimedia_wrapper = entity_metadata_wrapper('node', $multimedia);
+  $multimedia_wrapper->title = $item['title'];
+  $multimedia_wrapper->language = 'en';
+  $multimedia_wrapper->status = 1;
+  $multimedia_wrapper->field_multimedia_mid = $item['mid'];
+  return $multimedia_wrapper;
+}
+
+function feature_multimedia_save_tags($wrapper, $tags) {
+  foreach ($tags as $index => $tag) {
+    $term = taxonomy_get_term_by_name($tag, 'multimedia');
+    if (empty($term)) {
+      $vocabulary = taxonomy_vocabulary_machine_name_load('multimedia');
+      $term = new stdClass();
+      $term->vid = $vocabulary->vid;
+      $term->name = $tag;
+      taxonomy_term_save($term);
+    }
+    else {
+      $term = reset($term);
+    }
+    $wrapper->field_multimedia_tags[$index] = $term->tid;
+  }
+}
+
+function feature_multimedia_set_body($wrapper, $body) {
+  $default_language = 'en';
+  foreach ($body as $language => $value) {
+    $wrapper->language($language)->body = array('value' => $value, 'format' => 'full_html');
+    if($default_language != $language) {
+      // Register the translations.
+      $nid = $wrapper->nid->value();
+      $node = node_load($nid);
+      $handler = entity_translation_get_handler('node', $node);
+      $translation = array(
+        'translate' => 0,
+        'status' => 1,
+        'language' => $language, // here is the language you're translating to
+        'source' => $default_language, // here is the source language
+      );
+      $handler->setTranslation($translation, array());
+    }
+  }
+}
+
+function feature_multimedia_save_images($wrapper, $image) {
+  $path = drupal_get_path('module', 'feature_multimedia') . '/img';
+
+  if ($file = feature_multimedia_retrieve_image($path, $image)) {
+    $wrapper->field_multimedia_image = array('fid' => $file->fid);
+  }
+}
+
+function feature_multimedia_retrieve_image($path, $image) {
+  $destination = file_build_uri($image);
+  if ($existing_files = file_load_multiple(array(), array('uri' => $destination))) {
+    return reset($existing_files);
+  }
+  else if (file_exists("$path/$image")) {
+    if ($uri = file_unmanaged_copy("$path/$image", $destination, FILE_EXISTS_REPLACE)) {
+      $file = new stdClass();
+      $file->fid = NULL;
+      $file->uri = $uri;
+      $file->filename = drupal_basename($uri);
+      // If we are replacing an existing file re-use its database record.
+      $existing_files = file_load_multiple(array(), array('uri' => $uri));
+      if (count($existing_files)) {
+        $existing = reset($existing_files);
+        $file->fid = $existing->fid;
+        $file->filename = $existing->filename;
+      }
+
+      $file = file_save($file);
+      return $file;
+    }
+  }
+}
