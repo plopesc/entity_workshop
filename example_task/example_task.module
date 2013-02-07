@@ -270,6 +270,15 @@ function example_task_type_add_observations_field($type, $label = 'Observations'
   return $instance;
 }
 
+/**
+ * Implements hook_entity_insert()
+ */
+function example_task_entity_insert($entity, $type) {
+  if ($type == 'example_task_type') {
+    example_task_type_add_observations_field($entity);
+  }
+}
+
 
 /*******************************************************************************
  ********************************* Task API's **********************************
